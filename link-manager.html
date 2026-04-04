@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LinkVault — Your Personal Link Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #161921;
+      --surface2:  #1e2130;
+      --border:    #2a2f42;
+      --accent:    #e8c36a;
+      --accent2:   #c4a44a;
+      --danger:    #e05c5c;
+      --danger2:   #b84545;
+      --text:      #f0ede6;
+      --muted:     #7a8099;
+      --radius:    14px;
+      --mono:      'DM Mono', monospace;
+      --sans:      'DM Sans', sans-serif;
+      --serif:     'DM Serif Display', serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 80px;
+      overflow-x: hidden;
+    }
+
+    /* ── Background texture ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 20% 10%, rgba(232,195,106,.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 90%, rgba(100,120,200,.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      position: relative;
+      z-index: 1;
+    }
+    .logo-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px; height: 52px;
+      background: var(--accent);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 0 32px rgba(232,195,106,.3);
+    }
+    .logo-mark svg { width: 28px; height: 28px; fill: var(--bg); }
+    h1 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 6vw, 3.2rem);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    h1 span { color: var(--accent); font-style: italic; }
+    .tagline {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: .9rem;
+      font-weight: 300;
+      letter-spacing: .04em;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 580px;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      display: block;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+    }
+
+    /* ── Form ── */
+    .form-section { padding: 28px 28px 24px; }
+    .form-section h2 {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--accent);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 480px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: .76rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: .03em;
+    }
+    .field input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 13px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input::placeholder { color: var(--muted); opacity: .6; }
+    .field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(232,195,106,.12);
+    }
+    .field input.error { border-color: var(--danger); }
+
+    .error-msg {
+      font-size: .73rem;
+      color: var(--danger);
+      min-height: 1em;
+      margin-top: -4px;
+    }
+
+    /* ── Buttons ── */
+    .btn-add {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      font-family: var(--sans);
+      font-size: .92rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: .01em;
+      transition: background .18s, transform .12s, box-shadow .18s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn-add:hover { background: var(--accent2); box-shadow: 0 4px 20px rgba(232,195,106,.25); }
+    .btn-add:active { transform: scale(.98); }
+    .btn-add svg { width: 16px; height: 16px; fill: var(--bg); }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 28px;
+    }
+
+    /* ── List section ── */
+    .list-section { padding: 24px 28px 28px; }
+    .list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .list-header h2 {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--accent);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .count-badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: .72rem;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+
+    /* ── Empty state ── */
+    .empty {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+    .empty svg {
+      width: 36px; height: 36px;
+      opacity: .3;
+      margin-bottom: 10px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ── Link list ── */
+    #link-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Link item ── */
+    .link-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color .2s, box-shadow .2s;
+      animation: slideIn .25s cubic-bezier(.22,.68,0,1.2) both;
+    }
+    .link-item:hover {
+      border-color: rgba(232,195,106,.3);
+      box-shadow: 0 2px 16px rgba(0,0,0,.3);
+    }
+    .link-item.removing {
+      animation: slideOut .22s ease-in both;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes slideOut {
+      from { opacity: 1; transform: translateX(0) scale(1); max-height: 80px; margin-bottom: 0; }
+      to   { opacity: 0; transform: translateX(12px) scale(.96); max-height: 0; margin-bottom: -10px; padding: 0 16px; }
+    }
+
+    .favicon {
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .favicon img { width: 18px; height: 18px; object-fit: contain; }
+    .favicon-fallback {
+      width: 16px; height: 16px;
+      fill: var(--muted);
+    }
+
+    .link-info { flex: 1; min-width: 0; }
+    .link-name {
+      font-weight: 500;
+      font-size: .9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .link-name a {
+      color: var(--text);
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .link-name a:hover { color: var(--accent); }
+    .link-url {
+      font-size: .75rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .link-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .btn-icon {
+      width: 32px; height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, border-color .15s, transform .1s;
+    }
+    .btn-icon svg { width: 14px; height: 14px; }
+    .btn-icon:active { transform: scale(.9); }
+
+    .btn-edit { color: var(--accent); }
+    .btn-edit svg { fill: var(--accent); }
+    .btn-edit:hover { background: rgba(232,195,106,.1); border-color: var(--accent); }
+
+    .btn-delete { color: var(--danger); }
+    .btn-delete svg { fill: var(--danger); }
+    .btn-delete:hover { background: rgba(224,92,92,.1); border-color: var(--danger); }
+
+    /* ── Edit inline ── */
+    .edit-row {
+      display: none;
+      padding: 10px 16px 14px;
+      background: rgba(232,195,106,.04);
+      border-top: 1px solid var(--border);
+      gap: 8px;
+      flex-wrap: wrap;
+      border-radius: 0 0 10px 10px;
+    }
+    .edit-row.open { display: flex; }
+    .edit-row input {
+      flex: 1;
+      min-width: 120px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 11px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: .85rem;
+      outline: none;
+      transition: border-color .18s;
+    }
+    .edit-row input:focus { border-color: var(--accent); }
+    .btn-save {
+      padding: 8px 16px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 7px;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: .82rem;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-save:hover { background: var(--accent2); }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 10px 20px;
+      font-size: .84rem;
+      color: var(--text);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      z-index: 100;
+      white-space: nowrap;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 32px;
+      color: var(--muted);
+      font-size: .74rem;
+      letter-spacing: .04em;
+      opacity: .5;
+      z-index: 1;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+    </svg>
+  </div>
+  <h1>Link<span>Vault</span></h1>
+  <p class="tagline">Your curated collection of web destinations</p>
+</header>
+
+<div class="card">
+  <!-- ── Form ── -->
+  <div class="form-section">
+    <h2>⊕ &nbsp;Add New Link</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="site-name">Website Name</label>
+        <input type="text" id="site-name" placeholder="e.g. GitHub"/>
+        <span class="error-msg" id="err-name"></span>
+      </div>
+      <div class="field">
+        <label for="site-url">Website URL</label>
+        <input type="url" id="site-url" placeholder="https://github.com"/>
+        <span class="error-msg" id="err-url"></span>
+      </div>
+    </div>
+    <button class="btn-add" id="add-btn">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      Add Website
+    </button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── List ── -->
+  <div class="list-section">
+    <div class="list-header">
+      <h2>⊛ &nbsp;Saved Links</h2>
+      <span class="count-badge" id="count-badge">0</span>
+    </div>
+
+    <div id="empty-state" class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/>
+        <path d="M10.172 13.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.102-1.101"/>
+      </svg>
+      No links saved yet.<br>Add your first one above!
+    </div>
+
+    <ul id="link-list"></ul>
+  </div>
+</div>
+
+<footer>Stored locally in your browser · No data leaves your device</footer>
+<div id="toast"></div>
+
+<script>
+  const nameInput  = document.getElementById('site-name');
+  const urlInput   = document.getElementById('site-url');
+  const addBtn     = document.getElementById('add-btn');
+  const linkList   = document.getElementById('link-list');
+  const emptyState = document.getElementById('empty-state');
+  const countBadge = document.getElementById('count-badge');
+  const errName    = document.getElementById('err-name');
+  const errUrl     = document.getElementById('err-url');
+  const toast      = document.getElementById('toast');
+
+  let links = JSON.parse(localStorage.getItem('linkvault') || '[]');
+
+  /* ── Persist ── */
+  function save() {
+    localStorage.setItem('linkvault', JSON.stringify(links));
+  }
+
+  /* ── Toast ── */
+  let toastTimer;
+  function showToast(msg) {
+    clearTimeout(toastTimer);
+    toast.textContent = msg;
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+  }
+
+  /* ── Favicon helper ── */
+  function faviconUrl(url) {
+    try {
+      const origin = new URL(url).origin;
+      return `https://www.google.com/s2/favicons?domain=${origin}&sz=32`;
+    } catch { return null; }
+  }
+
+  /* ── Render all links ── */
+  function render() {
+    linkList.innerHTML = '';
+    countBadge.textContent = links.length;
+    emptyState.style.display = links.length ? 'none' : 'block';
+
+    links.forEach((link, i) => {
+      const li = document.createElement('li');
+      li.dataset.id = link.id;
+
+      const fav = faviconUrl(link.url);
+      li.innerHTML = `
+        <div class="link-item" id="item-${link.id}">
+          <div class="favicon">
+            ${fav
+              ? `<img src="${fav}" alt="" onerror="this.parentElement.innerHTML='<svg class=\\"favicon-fallback\\" viewBox=\\"0 0 24 24\\"><path d=\\"M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.102-1.101\\"/></svg>'">`
+              : `<svg class="favicon-fallback" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.102-1.101"/></svg>`
+            }
+          </div>
+          <div class="link-info">
+            <div class="link-name"><a href="${link.url}" target="_blank" rel="noopener noreferrer">${link.name}</a></div>
+            <div class="link-url">${link.url}</div>
+          </div>
+          <div class="link-actions">
+            <button class="btn-icon btn-edit" title="Edit" onclick="toggleEdit('${link.id}')">
+              <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn-icon btn-delete" title="Delete" onclick="removeLink('${link.id}')">
+              <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="edit-row" id="edit-${link.id}">
+          <input type="text" id="ename-${link.id}" placeholder="Name" value="${link.name}"/>
+          <input type="url"  id="eurl-${link.id}"  placeholder="https://..." value="${link.url}"/>
+          <button class="btn-save" onclick="saveEdit('${link.id}')">Save</button>
+        </div>
+      `;
+      linkList.appendChild(li);
+    });
+  }
+
+  /* ── Validate ── */
+  function validate() {
+    let ok = true;
+    const name = nameInput.value.trim();
+    const url  = urlInput.value.trim();
+
+    errName.textContent = '';
+    errUrl.textContent  = '';
+    nameInput.classList.remove('error');
+    urlInput.classList.remove('error');
+
+    if (!name) {
+      errName.textContent = 'Name is required.';
+      nameInput.classList.add('error');
+      ok = false;
+    }
+    if (!url) {
+      errUrl.textContent = 'URL is required.';
+      urlInput.classList.add('error');
+      ok = false;
+    } else if (!/^https?:\/\//i.test(url)) {
+      errUrl.textContent = 'URL must start with http:// or https://';
+      urlInput.classList.add('error');
+      ok = false;
+    }
+    return ok;
+  }
+
+  /* ── Add ── */
+  addBtn.addEventListener('click', () => {
+    if (!validate()) return;
+    const link = {
+      id:   crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+      name: nameInput.value.trim(),
+      url:  urlInput.value.trim()
+    };
+    links.unshift(link);
+    save();
+    render();
+    nameInput.value = '';
+    urlInput.value  = '';
+    errName.textContent = '';
+    errUrl.textContent  = '';
+    showToast(`"${link.name}" added ✓`);
+    nameInput.focus();
+  });
+
+  /* ── Enter key shortcut ── */
+  [nameInput, urlInput].forEach(el => {
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') addBtn.click(); });
+  });
+
+  /* ── Delete ── */
+  function removeLink(id) {
+    const item = document.getElementById(`item-${id}`);
+    if (item) {
+      item.classList.add('removing');
+      item.addEventListener('animationend', () => {
+        links = links.filter(l => l.id !== id);
+        save();
+        render();
+        showToast('Link removed');
+      }, { once: true });
+    }
+  }
+
+  /* ── Edit toggle ── */
+  function toggleEdit(id) {
+    const row = document.getElementById(`edit-${id}`);
+    const isOpen = row.classList.contains('open');
+    // close all
+    document.querySelectorAll('.edit-row.open').forEach(r => r.classList.remove('open'));
+    if (!isOpen) row.classList.add('open');
+  }
+
+  /* ── Save edit ── */
+  function saveEdit(id) {
+    const newName = document.getElementById(`ename-${id}`).value.trim();
+    const newUrl  = document.getElementById(`eurl-${id}`).value.trim();
+    if (!newName) { showToast('Name cannot be empty'); return; }
+    if (!newUrl || !/^https?:\/\//i.test(newUrl)) {
+      showToast('URL must start with http:// or https://'); return;
+    }
+    const link = links.find(l => l.id === id);
+    if (link) { link.name = newName; link.url = newUrl; }
+    save();
+    render();
+    showToast('Link updated ✓');
+  }
+
+  /* ── Init ── */
+  render();
+</script>
+</body>
+</html>
