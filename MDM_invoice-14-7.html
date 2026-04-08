@@ -1,0 +1,2629 @@
+ <!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Invoice Generator — DP Shetty</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+        ></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Arimo:wght@400;700&display=swap");
+
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            :root {
+                --ind-900: #1e1b4b;
+                --ind-800: #312e81;
+                --ind-600: #4f46e5;
+                --ind-100: #e0e7ff;
+                --grn-600: #059669;
+                --sl-500: #64748b;
+            }
+
+            html,
+            body {
+                height: 100%;
+            }
+            body {
+                font-family: "Inter", "Arimo", sans-serif;
+                background: #eef0f4;
+                color: #1e293b;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            ::-webkit-scrollbar {
+                width: 4px;
+                height: 4px;
+            }
+            ::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 99px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+
+            @media print {
+                .no-print {
+                    display: none !important;
+                }
+                body {
+                    background: white !important;
+                    overflow: visible !important;
+                }
+            }
+
+            /* ── A4 ── */
+            .a4-page {
+                width: 206mm;
+                height: 293mm;
+                padding: 13mm 12mm 10mm 12mm;
+                margin: 0 auto;
+                background: white;
+                position: relative;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                border: none;
+                outline: none;
+                outline-offset: 0;
+            }
+
+            /* ── Bill table ── */
+            .bill-table {
+                border-collapse: collapse;
+                table-layout: fixed;
+                width: 100%;
+            }
+            /* S.No */
+            .bill-table th:nth-child(1),
+            .bill-table td:nth-child(1) {
+                width: 5%;
+            }
+            /* Product / Description */
+            .bill-table th:nth-child(2),
+            .bill-table td:nth-child(2) {
+                width: 18%;
+            }
+            /* HSN/SAC — wide enough for 10-digit codes */
+            .bill-table th:nth-child(3),
+            .bill-table td:nth-child(3) {
+                width: 12%;
+                word-break: break-all;
+                white-space: normal;
+            }
+            /* Qty */
+            .bill-table th:nth-child(4),
+            .bill-table td:nth-child(4) {
+                width: 5%;
+            }
+            /* Price */
+            .bill-table th:nth-child(5),
+            .bill-table td:nth-child(5) {
+                width: 10%;
+            }
+            /* Unit Price */
+            .bill-table th:nth-child(6),
+            .bill-table td:nth-child(6) {
+                width: 12%;
+            }
+            /* SGST */
+            .bill-table th:nth-child(7),
+            .bill-table td:nth-child(7) {
+                width: 12%;
+            }
+            /* CGST */
+            .bill-table th:nth-child(8),
+            .bill-table td:nth-child(8) {
+                width: 12%;
+            }
+            /* Total */
+            .bill-table th:nth-child(9),
+            .bill-table td:nth-child(9) {
+                width: 14%;
+            }
+            /* Allow numeric data cells to wrap naturally — no truncation */
+            .bill-table td:nth-child(n+3) {
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+                word-break: break-word;
+            }
+            .bill-table th {
+                padding: 5px 4px;
+                font-weight: 700;
+                background: #f0f0f0;
+                text-align: center;
+                vertical-align: middle;
+                border: 1px solid #000;
+                font-size: 11px;
+            }
+            .bill-table th:nth-child(n+3) {
+                white-space: normal;
+            }
+            .bill-table td {
+                padding: 3px 4px;
+                vertical-align: top;
+                word-wrap: break-word;
+                border-left: 1px solid #000;
+                border-right: 1px solid #000;
+                border-top: none;
+                border-bottom: none;
+                font-size: 12px;
+            }
+
+            /* ── Inputs ── */
+            input[type="number"]::-webkit-outer-spin-button,
+            input[type="number"]::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            input[type="number"] {
+                -moz-appearance: textfield;
+                appearance: textfield;
+            }
+
+            .field {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                position: relative;
+            }
+            .field label {
+                font-size: 10.5px;
+                font-weight: 600;
+                color: var(--sl-500);
+                letter-spacing: 0.025em;
+                text-transform: uppercase;
+            }
+            .field input,
+            .field select,
+            .field textarea {
+                width: 100%;
+                padding: 7px 10px;
+                font-size: 13px;
+                font-family: inherit;
+                border: 1.5px solid #dde3ec;
+                border-radius: 8px;
+                background: #fff;
+                color: #0f172a;
+                outline: none;
+                transition:
+                    border-color 0.15s,
+                    box-shadow 0.15s;
+            }
+            .field input:focus,
+            .field select:focus,
+            .field textarea:focus {
+                border-color: var(--ind-600);
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+            }
+            .field input[readonly] {
+                background: #f8fafc;
+                color: var(--sl-500);
+                cursor: default;
+            }
+            .field input::placeholder,
+            .field textarea::placeholder {
+                color: #b0bac9;
+            }
+            .field select {
+                cursor: pointer;
+            }
+            .field textarea {
+                resize: vertical;
+                min-height: 54px;
+                line-height: 1.5;
+            }
+
+            /* ── Autocomplete dropdown ── */
+            .ac-drop {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: #fff;
+                border: 1.5px solid #c7d2fe;
+                border-radius: 8px;
+                z-index: 200;
+                box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12);
+                max-height: 160px;
+                overflow-y: auto;
+            }
+            .ac-item {
+                padding: 7px 10px;
+                font-size: 12px;
+                cursor: pointer;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .ac-item:last-child {
+                border-bottom: none;
+            }
+            .ac-item:hover {
+                background: #eef2ff;
+            }
+            .ac-item strong {
+                color: var(--ind-600);
+            }
+
+            /* ── Cards ── */
+            .card {
+                background: #fff;
+                border: 1.5px solid #e4eaf2;
+                border-radius: 14px;
+                padding: 16px 14px;
+                margin-bottom: 12px;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+                transition: box-shadow 0.2s;
+            }
+            .card:hover {
+                box-shadow: 0 3px 12px rgba(79, 70, 229, 0.06);
+            }
+            .card-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 12px;
+            }
+            .card-icon {
+                width: 27px;
+                height: 27px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .card-icon svg {
+                width: 13px;
+                height: 13px;
+            }
+            .card-title {
+                font-size: 10.5px;
+                font-weight: 700;
+                letter-spacing: 0.07em;
+                text-transform: uppercase;
+            }
+
+            /* ── Item card ── */
+            .item-card {
+                background: #f8fafc;
+                border: 1.5px solid #e4eaf2;
+                border-radius: 10px;
+                padding: 11px;
+                transition:
+                    border-color 0.15s,
+                    box-shadow 0.15s;
+            }
+            .item-card:hover {
+                border-color: #c7d2fe;
+                box-shadow: 0 2px 8px rgba(79, 70, 229, 0.06);
+            }
+            .item-badge {
+                font-size: 10px;
+                font-weight: 700;
+                color: var(--ind-600);
+                background: var(--ind-100);
+                padding: 2px 8px;
+                border-radius: 99px;
+            }
+            .btn-remove {
+                background: none;
+                border: none;
+                cursor: pointer;
+                width: 23px;
+                height: 23px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #ef4444;
+                font-size: 13px;
+                transition: background 0.15s;
+            }
+            .btn-remove:hover {
+                background: #fee2e2;
+            }
+
+            /* ── Tax mini ── */
+            .tax-mini {
+                background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+                border: 1px solid #c7d2fe;
+                border-radius: 9px;
+                padding: 8px 10px;
+                margin-top: 7px;
+            }
+            .tax-mini-row {
+                display: flex;
+                justify-content: space-between;
+                font-size: 10.5px;
+                padding: 2px 0;
+            }
+
+            /* ── Grand bar ── */
+            .grand-bar {
+                background: linear-gradient(
+                    135deg,
+                    var(--ind-900),
+                    var(--ind-800)
+                );
+                border-radius: 12px;
+                padding: 14px;
+                margin-top: 12px;
+                box-shadow: 0 6px 20px rgba(30, 27, 75, 0.2);
+            }
+            .grand-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 2.5px 0;
+            }
+
+            /* ── App header ── */
+            .app-header {
+                background: linear-gradient(
+                    100deg,
+                    var(--ind-900) 0%,
+                    var(--ind-800) 55%,
+                    #4338ca 100%
+                );
+                color: white;
+                padding: 0 16px;
+                height: 52px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+                box-shadow: 0 2px 16px rgba(30, 27, 75, 0.3);
+                z-index: 20;
+                flex-shrink: 0;
+            }
+            .header-brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .header-title {
+                font-size: 14px;
+                font-weight: 700;
+            }
+            .header-pill {
+                font-size: 10px;
+                background: rgba(255, 255, 255, 0.13);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                padding: 2px 8px;
+                border-radius: 99px;
+                font-weight: 500;
+            }
+            .header-actions {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            /* ── Buttons ── */
+            .btn-dl {
+                background: linear-gradient(135deg, #4f46e5, #6366f1);
+                color: white;
+                padding: 7px 16px;
+                border-radius: 8px;
+                font-size: 12.5px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+                box-shadow: 0 2px 10px rgba(79, 70, 229, 0.35);
+                transition:
+                    transform 0.14s,
+                    box-shadow 0.14s;
+            }
+            .btn-dl:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 5px 18px rgba(79, 70, 229, 0.45);
+            }
+            .btn-dl:disabled {
+                opacity: 0.6;
+                cursor: wait;
+                transform: none;
+            }
+            .btn-save-inv {
+                background: linear-gradient(135deg, #0369a1, #0ea5e9);
+                color: white;
+                padding: 7px 14px;
+                border-radius: 8px;
+                font-size: 12.5px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+                transition: transform 0.14s;
+            }
+            .btn-save-inv:hover {
+                transform: translateY(-1px);
+            }
+            .btn-add {
+                background: linear-gradient(135deg, var(--grn-600), #10b981);
+                color: white;
+                padding: 5px 12px;
+                border-radius: 7px;
+                font-size: 11px;
+                font-weight: 700;
+                border: none;
+                cursor: pointer;
+                box-shadow: 0 2px 7px rgba(5, 150, 105, 0.28);
+                transition: transform 0.14s;
+            }
+            .btn-add:hover {
+                transform: translateY(-1px);
+            }
+            .btn-new {
+                background: linear-gradient(135deg, #7c3aed, #a78bfa);
+                color: white;
+                padding: 7px 14px;
+                border-radius: 8px;
+                font-size: 12.5px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+                transition: transform 0.14s;
+            }
+            .btn-new:hover {
+                transform: translateY(-1px);
+            }
+            .btn-sm {
+                padding: 5px 10px;
+                border-radius: 7px;
+                font-size: 11px;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                transition: transform 0.12s;
+            }
+            .btn-sm:hover {
+                transform: translateY(-1px);
+            }
+
+            /* ── Sidebar ── */
+            .sidebar {
+                width: 390px;
+                min-width: 340px;
+                max-width: 420px;
+                background: #eef0f4;
+                border-right: 1.5px solid #dde4ed;
+                overflow-y: auto;
+                padding: 14px 12px;
+                flex-shrink: 0;
+            }
+
+            /* ── Search panel ── */
+            .search-panel {
+                background: #fff;
+                border: 1.5px solid #e4eaf2;
+                border-radius: 14px;
+                padding: 14px;
+                margin-bottom: 12px;
+            }
+            .bill-row {
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: 1px solid #e4eaf2;
+                margin-bottom: 6px;
+                cursor: pointer;
+                transition:
+                    border-color 0.15s,
+                    background 0.15s;
+                font-size: 11.5px;
+            }
+            .bill-row:hover {
+                background: #eef2ff;
+                border-color: #c7d2fe;
+            }
+            .bill-row:last-child {
+                margin-bottom: 0;
+            }
+            .bill-num {
+                font-weight: 700;
+                color: var(--ind-600);
+            }
+            .bill-meta {
+                color: #64748b;
+                font-size: 10.5px;
+                margin-top: 1px;
+            }
+            .empty-state {
+                text-align: center;
+                padding: 20px;
+                color: #94a3b8;
+                font-size: 12px;
+            }
+
+            /* ── Preview pane ── */
+            .preview-pane {
+                flex: 1;
+                overflow-y: auto;
+                background: linear-gradient(145deg, #d8dce6, #e5e8f0);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px 20px 28px;
+                gap: 10px;
+            }
+            .preview-label {
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: #8e96a8;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .preview-label::before,
+            .preview-label::after {
+                content: "";
+                flex: 1;
+                height: 1px;
+                background: #c6cad6;
+                max-width: 60px;
+            }
+
+            /* ── Toast ── */
+            .toast {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #1e293b;
+                color: #fff;
+                padding: 10px 18px;
+                border-radius: 10px;
+                font-size: 12.5px;
+                font-weight: 600;
+                z-index: 9999;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+                transform: translateY(80px);
+                opacity: 0;
+                transition:
+                    transform 0.3s,
+                    opacity 0.3s;
+                pointer-events: none;
+            }
+            .toast.show {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            .toast.success {
+                background: #059669;
+            }
+            .toast.error {
+                background: #dc2626;
+            }
+
+            /* ── Terms ── */
+            .terms-section {
+                margin-top: auto;
+                padding-top: 18mm;
+                page-break-inside: avoid;
+            }
+
+            /* ── Misc ── */
+            [x-cloak] {
+                display: none !important;
+            }
+            .mobile-tabs {
+                display: none;
+            }
+            .grid-2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 9px;
+            }
+            .flex-col-gap {
+                display: flex;
+                flex-direction: column;
+                gap: 9px;
+            }
+            .item-list {
+                display: flex;
+                flex-direction: column;
+                gap: 9px;
+                max-height: 420px;
+                overflow-y: auto;
+                padding-right: 2px;
+            }
+            .divider {
+                height: 1px;
+                background: #e4eaf2;
+                margin: 4px 0 12px;
+            }
+            .sec-toggle {
+                cursor: pointer;
+                user-select: none;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .sec-toggle svg {
+                transition: transform 0.2s;
+            }
+            .sec-toggle.open svg {
+                transform: rotate(180deg);
+            }
+
+            /* ── Mobile ── */
+            @media (max-width: 767px) {
+                body {
+                    overflow: hidden;
+                }
+                .app-header {
+                    height: auto;
+                    padding: 9px 12px;
+                    flex-wrap: wrap;
+                    gap: 7px;
+                }
+                .header-pill {
+                    display: none;
+                }
+                .mobile-tabs {
+                    display: flex;
+                    background: var(--ind-900);
+                    padding: 0 14px;
+                    flex-shrink: 0;
+                }
+                .mob-tab {
+                    flex: 1;
+                    padding: 9px 0;
+                    font-size: 11.5px;
+                    font-weight: 700;
+                    letter-spacing: 0.04em;
+                    text-transform: uppercase;
+                    color: rgba(255, 255, 255, 0.45);
+                    border: none;
+                    background: none;
+                    cursor: pointer;
+                    border-bottom: 3px solid transparent;
+                    transition:
+                        color 0.15s,
+                        border-color 0.15s;
+                }
+                .mob-tab.active {
+                    color: #fff;
+                    border-bottom-color: #818cf8;
+                }
+                .sidebar {
+                    display: none;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    border-right: none;
+                }
+                .preview-pane {
+                    display: none;
+                }
+                .show-form .sidebar {
+                    display: flex;
+                    flex-direction: column;
+                    overflow-y: auto;
+                }
+                .show-preview .preview-pane {
+                    display: flex;
+                }
+                .a4-page {
+                    transform-origin: top center;
+                    transform: scale(var(--a4-scale, 0.42));
+                    margin-bottom: calc((var(--a4-scale, 0.42) - 1) * 293mm);
+                }
+                .preview-pane {
+                    padding: 10px 4px 20px;
+                }
+            }
+        </style>
+    </head>
+
+    <body x-data="billApp()" x-init="initApp()" id="app-body">
+        <!-- ══ Header ════════════════════════════════════════════ -->
+        <header class="app-header no-print">
+            <div class="header-brand">
+                <span class="header-title">Invoice Generator</span>
+                <span class="header-pill">DP Shetty</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn-new" @click="newInvoice()">
+                    <svg
+                        width="13"
+                        height="13"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2.5"
+                            d="M12 4v16m8-8H4"
+                        />
+                    </svg>
+                    New
+                </button>
+                <button class="btn-save-inv" @click="saveInvoice()">
+                    <svg
+                        width="13"
+                        height="13"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2.5"
+                            d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                        />
+                    </svg>
+                    Save
+                </button>
+                <button class="btn-dl" id="dl-btn" @click="downloadPDF()">
+                    <svg
+                        width="13"
+                        height="13"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2.5"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        />
+                    </svg>
+                    <span id="dl-label">Download PDF</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ══ Mobile Tab Bar ════════════════════════════════════ -->
+        <div class="mobile-tabs no-print">
+            <button
+                class="mob-tab active"
+                id="tab-form"
+                onclick="switchTab('form')"
+            >
+                ✏️ Fill
+            </button>
+            <button
+                class="mob-tab"
+                id="tab-preview"
+                onclick="switchTab('preview')"
+            >
+                📄 Preview
+            </button>
+        </div>
+
+        <!-- ══ Main ══════════════════════════════════════════════ -->
+        <div style="flex: 1; display: flex; overflow: hidden" id="main-area">
+            <!-- ── LEFT SIDEBAR ────────────────────────────────── -->
+            <aside class="sidebar no-print">
+                <!-- ─ Search Bills ─ -->
+                <div class="search-panel">
+                    <div
+                        class="sec-toggle"
+                        :class="showSearch ? 'open':''"
+                        @click="showSearch=!showSearch"
+                    >
+                        <div
+                            style="display: flex; align-items: center; gap: 7px"
+                        >
+                            <div
+                                class="card-icon"
+                                style="
+                                    background: #f0fdf4;
+                                    width: 24px;
+                                    height: 24px;
+                                "
+                            >
+                                <svg
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="#059669"
+                                    stroke-width="2.2"
+                                >
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M21 21l-4.35-4.35"
+                                    />
+                                </svg>
+                            </div>
+                            <span class="card-title" style="color: #059669"
+                                >Search Bills</span
+                            >
+                            <span
+                                x-show="savedInvoices.length"
+                                x-text="'('+savedInvoices.length+')'"
+                                style="
+                                    font-size: 10px;
+                                    color: #94a3b8;
+                                    font-weight: 600;
+                                "
+                            ></span>
+                        </div>
+                        <svg
+                            width="14"
+                            height="14"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="#94a3b8"
+                            stroke-width="2.5"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M19 9l-7 7-7-7"
+                            />
+                        </svg>
+                    </div>
+
+                    <div
+                        x-show="showSearch"
+                        x-collapse
+                        style="margin-top: 10px"
+                    >
+                        <div class="field" style="margin-bottom: 8px">
+                            <input
+                                type="text"
+                                x-model="searchQuery"
+                                placeholder="Search invoice no, name or phone…"
+                                style="font-size: 12px"
+                            />
+                        </div>
+                        <div style="max-height: 220px; overflow-y: auto">
+                            <template x-if="filteredInvoices().length === 0">
+                                <div class="empty-state">
+                                    <div
+                                        style="
+                                            font-size: 20px;
+                                            margin-bottom: 6px;
+                                        "
+                                    >
+                                        📂
+                                    </div>
+                                    <div
+                                        x-text="savedInvoices.length === 0 ? 'No saved invoices yet' : 'No matching invoices'"
+                                    ></div>
+                                </div>
+                            </template>
+                            <template
+                                x-for="inv in filteredInvoices()"
+                                :key="inv.id"
+                            >
+                                <div class="bill-row" @click="loadInvoice(inv)">
+                                    <div
+                                        style="
+                                            display: flex;
+                                            justify-content: space-between;
+                                            align-items: center;
+                                        "
+                                    >
+                                        <span
+                                            class="bill-num"
+                                            x-text="inv.number"
+                                        ></span>
+                                        <span
+                                            style="
+                                                font-size: 10px;
+                                                color: #94a3b8;
+                                            "
+                                            x-text="inv.date"
+                                        ></span>
+                                    </div>
+                                    <div class="bill-meta">
+                                        <span
+                                            x-text="inv.customerName || 'No name'"
+                                        ></span>
+                                        <template x-if="inv.phone"
+                                            ><span>
+                                                ·
+                                                <span
+                                                    x-text="inv.phone"
+                                                ></span></span
+                                        ></template>
+                                    </div>
+                                    <div
+                                        class="bill-meta"
+                                        style="color: #4338ca; font-weight: 600"
+                                        x-text="'₹ ' + inv.total"
+                                    ></div>
+                                </div>
+                            </template>
+                        </div>
+                        <template x-if="savedInvoices.length > 0">
+                            <div style="text-align: right; margin-top: 6px">
+                                <button
+                                    class="btn-sm"
+                                    style="background: #fee2e2; color: #b91c1c"
+                                    @click="clearAllInvoices()"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- ─ Logo Upload ─ -->
+                <div class="card" style="border-color: #fde68a;">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: #fffbeb;">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="#d97706" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <span class="card-title" style="color: #d97706;">Shop Logo</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div x-show="shop.logoUrl" style="flex-shrink:0;">
+                            <img :src="shop.logoUrl" style="height:50px;width:auto;max-width:120px;object-fit:contain;border-radius:6px;border:1px solid #fde68a;" />
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;letter-spacing:.025em;text-transform:uppercase;margin-bottom:5px;">Upload Logo</label>
+                            <input type="file" accept="image/*" style="font-size:11.5px;width:100%;cursor:pointer;" @change="
+                                const f = $event.target.files[0];
+                                if (!f) return;
+                                const r = new FileReader();
+                                r.onload = e => { shop.logoUrl = e.target.result; localStorage.setItem('mdm_logo_v1', e.target.result); };
+                                r.readAsDataURL(f);
+                            " />
+                            <button x-show="shop.logoUrl" @click="shop.logoUrl=''; localStorage.removeItem('mdm_logo_v1');" style="margin-top:5px;font-size:10.5px;color:#b91c1c;background:#fee2e2;border:none;border-radius:5px;padding:3px 9px;cursor:pointer;font-weight:600;">Remove Logo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─ Invoice Details ─ -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: #eef2ff">
+                            <svg
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="#4338ca"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M9 12h6m-3-3v6M5 8h14M5 12h.01M5 16h.01"
+                                />
+                            </svg>
+                        </div>
+                        <span class="card-title" style="color: #4338ca"
+                            >Invoice Details</span
+                        >
+                    </div>
+                    <div class="grid-2" style="margin-bottom: 9px">
+                        <div class="field">
+                            <label>Invoice No</label>
+                            <input
+                                type="text"
+                                x-model="invoice.number"
+                                readonly
+                            />
+                        </div>
+                        <div class="field">
+                            <label>Date</label>
+                            <input type="date" x-model="invoice.date" />
+                        </div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="field">
+                            <label>Place of Supply</label>
+                            <input
+                                type="text"
+                                x-model="invoice.placeOfSupply"
+                                placeholder="Karnataka"
+                            />
+                        </div>
+                        <div class="field">
+                            <label>Payment Mode</label>
+                            <select
+                                x-model="invoice.paymentMode"
+                                style="font-weight: 600"
+                            >
+                                <option>Cash</option>
+                                <option>UPI</option>
+                                <option>Bank Transfer</option>
+                                <option>Card</option>
+                                <option>Finance</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:9px;">
+                        <label>Bill Type</label>
+                        <select x-model="invoice.billType" style="font-weight:600;" @change="invoice.number = invoice.billType === 'advance' ? getNextAdvanceNumber() : getNextInvoiceNumber()">
+                            <option value="tax">Tax Invoice</option>
+                            <option value="advance">Advance Bill</option>
+                        </select>
+                    </div>
+                    <div class="field" style="margin-top:9px;" x-show="invoice.billType==='advance'" x-cloak>
+                        <label>Advance Paid (₹)</label>
+                        <input type="number" x-model.number="invoice.advancePaid" placeholder="0" />
+                    </div>
+                </div>
+
+                <!-- ─ Finance Details ─ -->
+                <div
+                    class="card"
+                    x-show="invoice.paymentMode==='Finance'"
+                    x-cloak
+                    style="border-color: #ddd6fe"
+                >
+                    <div class="card-header">
+                        <div class="card-icon" style="background: #f5f3ff">
+                            <svg
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="#7c3aed"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                            </svg>
+                        </div>
+                        <span class="card-title" style="color: #7c3aed"
+                            >Finance Details</span
+                        >
+                    </div>
+                    <div class="flex-col-gap">
+                        <div class="field">
+                            <label>Document Number</label
+                            ><input
+                                type="text"
+                                x-model="finance.documentNumber"
+                                placeholder="FIN-2024-001"
+                            />
+                        </div>
+                        <div class="field">
+                            <label>Downpayment (₹)</label
+                            ><input
+                                type="number"
+                                x-model.number="finance.downpayment"
+                                min="0"
+                            />
+                        </div>
+                        <div class="grid-2">
+                            <div class="field">
+                                <label>EMI Amount (₹)</label>
+                                <input type="number" x-model.number="finance.emi" min="0" placeholder="0" />
+                            </div>
+                            <div class="field">
+                                <label>No. of Months</label>
+                                <input type="number" x-model.number="finance.months" min="0" placeholder="0" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─ Customer Info ─ -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: #eff6ff">
+                            <svg
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="#0369a1"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                />
+                            </svg>
+                        </div>
+                        <span class="card-title" style="color: #0369a1"
+                            >Customer Information</span
+                        >
+                    </div>
+                    <div class="flex-col-gap">
+                        <div
+                            class="field"
+                            x-data="{open:false}"
+                            @click.away="open=false"
+                        >
+                            <label>Phone Number</label>
+                            <input
+                                type="tel"
+                                x-model="customer.phone"
+                                placeholder="+91 XXXXX XXXXX"
+                                @input="open=true; phoneAutofill()"
+                                @focus="open=true"
+                                autocomplete="off"
+                            />
+                            <div
+                                class="ac-drop"
+                                x-show="open && phoneSuggestions().length > 0"
+                                x-cloak
+                            >
+                                <template
+                                    x-for="c in phoneSuggestions()"
+                                    :key="c.phone"
+                                >
+                                    <div
+                                        class="ac-item"
+                                        @click.stop="fillCustomer(c); open=false"
+                                    >
+                                        <strong x-text="c.phone"></strong> —
+                                        <span x-text="c.name"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Full Name</label
+                            ><input
+                                type="text"
+                                x-model="customer.name"
+                                placeholder="Customer name"
+                                @change="saveCustomer()"
+                            />
+                        </div>
+                        <div class="field">
+                            <label>Address</label
+                            ><textarea
+                                x-model="customer.address"
+                                rows="2"
+                                placeholder="Street, City, State"
+                                @change="saveCustomer()"
+                            ></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─ Items ─ -->
+                <div class="card" style="padding-bottom: 12px">
+                    <div
+                        style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: 12px;
+                        "
+                    >
+                        <div class="card-header" style="margin-bottom: 0">
+                            <div class="card-icon" style="background: #ecfdf5">
+                                <svg
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="#059669"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                    />
+                                </svg>
+                            </div>
+                            <span class="card-title" style="color: #059669"
+                                >Items</span
+                            >
+                        </div>
+                        <button @click="addItem()" class="btn-add">
+                            + Add Item
+                        </button>
+                    </div>
+
+                    <div class="item-list">
+                        <template x-for="(item, index) in items" :key="index">
+                            <div class="item-card">
+                                <div
+                                    style="
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        margin-bottom: 9px;
+                                    "
+                                >
+                                    <span class="item-badge"
+                                        >Item <span x-text="index+1"></span
+                                    ></span>
+                                    <button
+                                        @click="removeItem(index)"
+                                        class="btn-remove"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                <div class="flex-col-gap">
+                                    <div
+                                        class="field"
+                                        x-data="{open:false}"
+                                        @click.away="open=false"
+                                    >
+                                        <label>Item Name</label>
+                                        <input
+                                            type="text"
+                                            x-model="item.name"
+                                            @input="open=true; autoFillHSN(item)"
+                                            @focus="open=true"
+                                            autocomplete="off"
+                                        />
+                                        <div
+                                            class="ac-drop"
+                                            x-show="open && hsnSuggestions(item).length > 0"
+                                            x-cloak
+                                        >
+                                            <template
+                                                x-for="h in hsnSuggestions(item)"
+                                                :key="h.name"
+                                            >
+                                                <div
+                                                    class="ac-item"
+                                                    @click.stop="applyHSN(item,h); open=false"
+                                                >
+                                                    <strong
+                                                        x-text="h.name"
+                                                    ></strong>
+                                                    <span
+                                                        x-show="h.hsn"
+                                                        style="color: #64748b"
+                                                        x-text="' · HSN: '+h.hsn"
+                                                    ></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label>Note <span style="font-weight:400;color:#94a3b8;text-transform:none;font-size:10px;">(shown below item in invoice)</span></label>
+                                        <textarea
+                                            x-model="item.note"
+                                            placeholder="e.g. Color: Black, Warranty: 1 year..."
+                                            rows="2"
+                                            style="font-size:12px;line-height:1.4;"
+                                        ></textarea>
+                                    </div>
+                                    <div class="field">
+                                        <label>Serial / IMEI</label
+                                        ><input
+                                            type="text"
+                                            x-model="item.serial"
+                                            placeholder="359876543210001"
+                                            style="
+                                                font-family: monospace;
+                                                letter-spacing: 0.04em;
+                                            "
+                                        />
+                                    </div>
+                                    <div class="grid-2">
+                                        <div class="field">
+                                            <label>HSN/SAC</label>
+                                            <input
+                                                type="text"
+                                                x-model="item.hsn"
+                                                placeholder="8517"
+                                                @change="saveHSNEntry(item)"
+                                            />
+                                        </div>
+                                        <div class="field">
+                                            <label>GST %</label>
+                                            <select
+                                                x-model.number="item.gst"
+                                                style="font-weight: 600"
+                                            >
+                                                <option value="0">0%</option>
+                                                <option value="5">5%</option>
+                                                <option value="12">12%</option>
+                                                <option value="18">18%</option>
+                                                <option value="28">28%</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="grid-2">
+                                        <div class="field">
+                                            <label>Qty</label
+                                            ><input
+                                                type="number"
+                                                x-model.number="item.qty"
+                                                min="1"
+                                            />
+                                        </div>
+                                        <div class="field">
+                                            <label>Price / MRP (₹)</label
+                                            ><input
+                                                type="number"
+                                                x-model.number="item.mrp"
+                                                min="0"
+                                                placeholder="MRP"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div class="grid-2">
+                                        <div class="field">
+                                            <label>Selling Price (₹)</label
+                                            ><input
+                                                type="number"
+                                                x-model.number="item.price"
+                                                min="0"
+                                                placeholder="Unit/Selling Price"
+                                            />
+                                        </div>
+                                        <div class="field" style="display:flex;flex-direction:column;justify-content:flex-end;">
+                                            <label style="color:#b91c1c;">Discount</label>
+                                            <input
+                                                type="text"
+                                                readonly
+                                                :value="'₹ '+formatCurrency(itemDiscount(item))"
+                                                style="background:#fff7f7;color:#b91c1c;font-weight:700;border-color:#fca5a5;"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div class="tax-mini">
+                                        <div class="tax-mini-row">
+                                            <span
+                                                style="
+                                                    color: #6366f1;
+                                                    font-weight: 500;
+                                                "
+                                                >Base (excl. GST)</span
+                                            ><strong
+                                                style="color: #312e81"
+                                                x-text="'₹'+formatCurrency(itemBase(item))"
+                                            ></strong>
+                                        </div>
+                                        <div class="tax-mini-row">
+                                            <span style="color: #64748b"
+                                                >SGST (<span
+                                                    x-text="(item.gst||0)/2"
+                                                ></span
+                                                >%)</span
+                                            ><strong
+                                                style="color: #1e293b"
+                                                x-text="'₹'+formatCurrency(itemSGST(item))"
+                                            ></strong>
+                                        </div>
+                                        <div class="tax-mini-row">
+                                            <span style="color: #64748b"
+                                                >CGST (<span
+                                                    x-text="(item.gst||0)/2"
+                                                ></span
+                                                >%)</span
+                                            ><strong
+                                                style="color: #1e293b"
+                                                x-text="'₹'+formatCurrency(itemCGST(item))"
+                                            ></strong>
+                                        </div>
+                                        <div
+                                            class="tax-mini-row"
+                                            style="
+                                                border-top: 1px solid #c7d2fe;
+                                                margin-top: 4px;
+                                                padding-top: 4px;
+                                            "
+                                        >
+                                            <span
+                                                style="
+                                                    color: #4338ca;
+                                                    font-weight: 700;
+                                                "
+                                                >Total (incl. GST)</span
+                                            ><strong
+                                                style="
+                                                    color: #312e81;
+                                                    font-size: 12px;
+                                                "
+                                                x-text="'₹'+formatCurrency(itemTotal(item))"
+                                            ></strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="grand-bar">
+                        <div class="grand-row">
+                            <span style="color: #a5b4fc; font-size: 11px"
+                                >Taxable Amount</span
+                            ><span
+                                style="color: #c7d2fe; font-size: 11px"
+                                x-text="'₹'+formatCurrency(calcSubtotal())"
+                            ></span>
+                        </div>
+                        <div class="grand-row">
+                            <span style="color: #818cf8; font-size: 11px"
+                                >SGST</span
+                            ><span
+                                style="color: #a5b4fc; font-size: 11px"
+                                x-text="'₹'+formatCurrency(calcTotalSGST())"
+                            ></span>
+                        </div>
+                        <div class="grand-row">
+                            <span style="color: #818cf8; font-size: 11px"
+                                >CGST</span
+                            ><span
+                                style="color: #a5b4fc; font-size: 11px"
+                                x-text="'₹'+formatCurrency(calcTotalCGST())"
+                            ></span>
+                        </div>
+                        <div
+                            class="grand-row"
+                            style="
+                                border-top: 1px solid rgba(255, 255, 255, 0.14);
+                                margin-top: 5px;
+                                padding-top: 5px;
+                            "
+                        >
+                            <span
+                                style="
+                                    color: #e0e7ff;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                "
+                                >GST Total (SGST+CGST)</span
+                            ><span
+                                style="
+                                    color: #e0e7ff;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                "
+                                x-text="'₹'+formatCurrency(calcTotalGST())"
+                            ></span>
+                        </div>
+                        <div
+                            class="grand-row"
+                            style="
+                                border-top: 1px solid rgba(255, 255, 255, 0.18);
+                                margin-top: 4px;
+                                padding-top: 6px;
+                            "
+                        >
+                            <span
+                                style="
+                                    color: #fde68a;
+                                    font-size: 15px;
+                                    font-weight: 800;
+                                "
+                                >TOTAL</span
+                            ><span
+                                style="
+                                    color: #fde68a;
+                                    font-size: 15px;
+                                    font-weight: 800;
+                                "
+                                x-text="'₹'+formatCurrency(calcGrandTotal())"
+                            ></span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ── RIGHT PREVIEW ────────────────────────────────── -->
+            <div class="preview-pane">
+                <div class="preview-label no-print">Live Preview</div>
+
+                <div
+                    id="invoice-preview"
+                    class="a4-page"
+                    style="
+                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+                        position: relative;
+                    "
+                >
+                    <!-- Page border — renders in PDF -->
+                    <div style="position:absolute;top:5mm;left:5mm;right:5mm;bottom:5mm;border:2px solid #000;pointer-events:none;z-index:0;"></div>
+                    <div
+                        style="
+                            position: relative;
+                            z-index: 1;
+                            display: flex;
+                            flex-direction: column;
+                            height: 100%;
+                        "
+                    >
+                        <!-- ① Header -->
+                        <div
+                            style="
+                                position: relative;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                padding: 3px 0 3px;
+                                border-bottom: 1.5px solid #000;
+                                margin-bottom: 5px;
+                            "
+                        >
+                            <!-- Logo (left) — tall but header stays compact -->
+                            <div x-show="shop.logoUrl" style="position:absolute;left:4mm;top:50%;transform:translateY(-50%);width:40mm;display:flex;align-items:center;justify-content:flex-start;">
+                                <img :src="shop.logoUrl" style="width:40mm;height:auto;max-height:none;object-fit:contain;object-position:left center;display:block;" />
+                            </div>
+                            <div
+                                style="
+                                    position: absolute;
+                                    right: 0;
+                                    top: 4px;
+                                    text-align: right;
+                                "
+                            >
+                                <div style="font-size: 12px; font-weight: 700">
+                                    📞 <span x-text="shop.mobile"></span>
+                                </div>
+                            </div>
+                            <div
+                                style="
+                                    position: absolute;
+                                    right: 0;
+                                    bottom: 4px;
+                                    text-align: right;
+                                "
+                            >
+                                <div style="font-size: 11px; font-weight: 700">
+                                    GSTIN: 29ABQFM3560L1ZK
+                                </div>
+                            </div>
+                            <div style="text-align: center; padding: 0 50mm 0 50mm">
+                                <h2
+                                    style="
+                                        font-size: 18px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.03em;
+                                        text-transform: uppercase;
+                                        margin-bottom: 1px;
+                                        white-space: nowrap;
+                                        overflow: hidden;
+                                        text-overflow: ellipsis;
+                                    "
+                                    x-text="shop.name"
+                                ></h2>
+                                <p
+                                    style="
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        line-height: 1.3;
+                                        white-space: pre-line;
+                                        color: #222;
+                                    "
+                                    x-text="shop.address"
+                                ></p>
+                                <p
+                                    style="
+                                        font-size: 11px;
+                                        font-weight: 600;
+                                        color: #444;
+                                        margin-top: 1px;
+                                    "
+                                >
+                                    ✉ <span x-text="shop.email"></span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- ② INVOICE title strip -->
+                        <div
+                            style="
+                                text-align: center;
+                                margin-bottom: 5px;
+                                background: #f4f4f4;
+                                padding: 3px 0;
+                                border-top: 1px solid #000;
+                                border-bottom: 1px solid #000;
+                            "
+                        >
+                            <span
+                                style="
+                                    font-size: 14px;
+                                    font-weight: 800;
+                                    letter-spacing: 0.18em;
+                                    text-transform: uppercase;
+                                "
+                                x-text="invoice.billType === 'advance' ? 'ADVANCE BILL' : 'TAX INVOICE'"
+                            ></span>
+                        </div>
+
+                        <!-- ③ Customer & Invoice info -->
+                        <div
+                            style="
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 0;
+                                margin-bottom: 5px;
+                                border: 1px solid #000;
+                            "
+                        >
+                            <!-- Bill To -->
+                            <div style="padding: 5px 7px; border-right: 1px solid #000;">
+                                <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 4px;">Bill To:</div>
+                                <table style="font-size: 11.5px; border-collapse: collapse; width: 100%;">
+                                    <tr>
+                                        <td style="font-weight: 700; white-space: nowrap; width: 58px; padding: 1px 0; vertical-align: top;">Name</td>
+                                        <td style="padding: 1px 4px; vertical-align: top;">:</td>
+                                        <td style="font-weight: 700; padding: 1px 0; vertical-align: top;" x-text="customer.name"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; white-space: nowrap; width: 58px; padding: 1px 0; vertical-align: top;">Address</td>
+                                        <td style="padding: 1px 4px; vertical-align: top;">:</td>
+                                        <td style="font-weight: 700; padding: 1px 0; vertical-align: top; white-space: pre-line;" x-text="customer.address"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; white-space: nowrap; width: 58px; padding: 1px 0; vertical-align: top;">Phone</td>
+                                        <td style="padding: 1px 4px; vertical-align: top;">:</td>
+                                        <td style="font-weight: 700; padding: 1px 0; vertical-align: top;" x-text="customer.phone"></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <!-- Invoice Detail -->
+                            <div style="padding: 5px 7px;">
+                                <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 4px;">Invoice Detail:</div>
+                                <table style="font-size: 11.5px; border-collapse: collapse; width: 100%;">
+                                    <tr>
+                                        <td style="font-weight: 700; white-space: nowrap; width: 105px; padding: 1px 0; vertical-align: top;">Invoice No</td>
+                                        <td style="padding: 1px 4px; vertical-align: top;">:</td>
+                                        <td style="font-weight: 700; padding: 1px 0; vertical-align: top;" x-text="invoice.number"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; white-space: nowrap; width: 105px; padding: 1px 0; vertical-align: top;">Date</td>
+                                        <td style="padding: 1px 4px; vertical-align: top;">:</td>
+                                        <td style="font-weight: 700; padding: 1px 0; vertical-align: top;" x-text="formatDate(invoice.date)"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; white-space: nowrap; width: 105px; padding: 1px 0; vertical-align: top;">Place of Supply</td>
+                                        <td style="padding: 1px 4px; vertical-align: top;">:</td>
+                                        <td style="font-weight: 700; padding: 1px 0; vertical-align: top;" x-text="invoice.placeOfSupply"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 700; white-space: nowrap; width: 105px; padding: 1px 0; vertical-align: top;">Payment Mode</td>
+                                        <td style="padding: 1px 4px; vertical-align: top;">:</td>
+                                        <td style="font-weight: 700; padding: 1px 0; vertical-align: top;" x-text="invoice.paymentMode"></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- ④ Items Table -->
+                        <div style="margin-bottom: 4px">
+                            <table class="bill-table">
+                                <thead>
+                                    <tr>
+                                        <th>S.No</th>
+                                        <th style="text-align: left">
+                                            Product / Description
+                                        </th>
+                                        <th>HSN/SAC</th>
+                                        <th>Qty</th>
+                                        <th>Price (₹)</th>
+                                        <th>Unit Price (₹)</th>
+                                        <th>SGST (₹)</th>
+                                        <th>CGST (₹)</th>
+                                        <th>Total (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template
+                                        x-for="(item, index) in items"
+                                        :key="index"
+                                    >
+                                        <tr style="border-left:1px solid #000;border-right:1px solid #000;">
+                                            <td style="text-align:center;font-weight:700;border-left:1px solid #000;border-right:1px solid #000;" x-text="index+1"></td>
+                                            <td style="text-align:left;border-right:1px solid #000;vertical-align:top;padding-top:3px;padding-bottom:3px;">
+                                                <div style="font-weight:700;font-size:12px;line-height:1.3;" x-text="item.name"></div>
+                                                <div x-show="item.note && item.note.trim()" style="font-size:9.5px;font-weight:500;color:#444;white-space:pre-line;line-height:1.3;margin-top:1px;" x-text="item.note"></div>
+                                                <div x-show="item.serial" style="font-size:9.5px;font-weight:600;color:#555;font-family:monospace;margin-top:1px;line-height:1.3;" x-text="'S/N: '+item.serial"></div>
+                                            </td>
+                                            <td style="text-align:center;font-weight:700;border-right:1px solid #000;" x-text="item.hsn||'—'"></td>
+                                            <td style="text-align:center;font-weight:700;border-right:1px solid #000;" x-text="item.qty"></td>
+                                            <td style="text-align:center;font-weight:700;border-right:1px solid #000;" x-text="formatCurrency(item.mrp||0)"></td>
+                                            <td style="text-align:center;font-weight:700;border-right:1px solid #000;" x-text="formatCurrency(item.qty ? itemBase(item)/(item.qty||1) : 0)"></td>
+                                            <td style="text-align:center;font-weight:700;border-right:1px solid #000;" x-text="formatCurrency(itemSGST(item))"></td>
+                                            <td style="text-align:center;font-weight:700;border-right:1px solid #000;" x-text="formatCurrency(itemCGST(item))"></td>
+                                            <td style="text-align:center;font-weight:700;border-right:1px solid #000;" x-text="formatCurrency(itemTotal(item))"></td>
+                                        </tr>
+                                    </template>
+                                    <template
+                                        x-for="i in fillerRowCount()"
+                                        :key="'f-'+i"
+                                    >
+                                        <tr style="height:28px;">
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                            <td style="padding:0;border-left:1px solid #000;border-right:1px solid #000;border-top:none;border-bottom:none;"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                                <tfoot>
+                                    <!-- ── Column Totals row ── -->
+                                    <tr style="background:#f5f5f5;">
+                                        <td colspan="3" style="font-size:11.5px;font-weight:800;padding:5px 6px;border:1px solid #000;text-align:center;letter-spacing:.04em;">TOTAL</td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 4px;border:1px solid #000;text-align:center;" x-text="items.reduce((a,i)=>a+(i.qty||0),0)"></td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 4px;border:1px solid #000;text-align:center;" x-text="formatCurrency(items.reduce((a,i)=>a+((i.name||'').trim()?(i.mrp||0):0),0))"></td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 4px;border:1px solid #000;text-align:center;" x-text="formatCurrency(items.reduce((a,i)=>a+itemBase(i),0))"></td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 4px;border:1px solid #000;text-align:center;" x-text="formatCurrency(calcTotalSGST())"></td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 4px;border:1px solid #000;text-align:center;" x-text="formatCurrency(calcTotalCGST())"></td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 4px;border:1px solid #000;text-align:center;" x-text="'₹'+formatCurrency(calcGrandTotal())"></td>
+                                    </tr>
+                                    <!-- GST Amount row -->
+                                    <tr style="background:#fafafa;">
+                                        <td colspan="8" style="font-size:11.5px;font-weight:600;padding:5px 8px;border-left:1px solid #000;border-top:1px solid #000;border-bottom:1px solid #000;border-right:none;color:#000;">
+                                            GST Amount &nbsp;<span x-text="(items[0]&&items[0].gst||18)+'%'"></span>&nbsp;( SGST <span x-text="(items[0]&&items[0].gst||18)/2+'%'"></span> + CGST <span x-text="(items[0]&&items[0].gst||18)/2+'%'"></span> )
+                                        </td>
+                                        <td style="font-size:11.5px;font-weight:600;padding:5px 7px;border:1px solid #000;text-align:center;color:#000;" x-text="formatCurrency(calcTotalGST())"></td>
+                                    </tr>
+                                    <!-- Discount row -->
+                                    <tr style="background:#fff;" x-show="calcTotalDiscount() > 0">
+                                        <td colspan="8" style="font-size:11.5px;font-weight:600;padding:5px 8px;border-left:1px solid #000;border-top:1px solid #000;border-bottom:1px solid #000;border-right:none;color:#000;">Discount</td>
+                                        <td style="font-size:11.5px;font-weight:600;padding:5px 7px;border:1px solid #000;text-align:center;color:#000;" x-text="'₹'+formatCurrency(calcTotalDiscount())"></td>
+                                    </tr>
+                                    <!-- Grand Total row -->
+                                    <tr style="background:#e8e8e8;">
+                                        <td colspan="8" style="font-size:11.5px;font-weight:800;padding:5px 8px;border-left:1px solid #000;border-top:1px solid #000;border-bottom:1px solid #000;border-right:none;color:#000;">TOTAL (Incl. GST)</td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 7px;border:1px solid #000;text-align:center;color:#000;" x-text="'₹'+formatCurrency(calcGrandTotal())"></td>
+                                    </tr>
+                                    <!-- Advance Paid row -->
+                                    <tr x-show="invoice.billType==='advance'" style="background:#fff;">
+                                        <td colspan="8" style="font-size:11.5px;font-weight:600;padding:5px 8px;border-left:1px solid #000;border-top:1px solid #000;border-bottom:1px solid #000;border-right:none;color:#000;">Advance Paid</td>
+                                        <td style="font-size:11.5px;font-weight:600;padding:5px 7px;border:1px solid #000;text-align:center;color:#000;" x-text="'₹'+formatCurrency(invoice.advancePaid||0)"></td>
+                                    </tr>
+                                    <!-- Balance Amount row -->
+                                    <tr x-show="invoice.billType==='advance'" style="background:#e8e8e8;">
+                                        <td colspan="8" style="font-size:11.5px;font-weight:800;padding:5px 8px;border-left:1px solid #000;border-top:1px solid #000;border-bottom:1px solid #000;border-right:none;color:#000;">Balance Amount</td>
+                                        <td style="font-size:11.5px;font-weight:800;padding:5px 7px;border:1px solid #000;text-align:center;color:#000;" x-text="'₹'+formatCurrency(Math.max(0, calcGrandTotal()-(invoice.advancePaid||0)))"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- ⑤ Amount in Words -->
+                        <div
+                            style="
+                                margin-top: 6px;
+                                margin-bottom: 4px;
+                                border: 1px solid #000;
+                                padding: 4px 7px;
+                                background: #f8f8f8;
+                                display: flex;
+                                align-items: baseline;
+                                gap: 5px;
+                            "
+                        >
+                            <span
+                                style="
+                                    font-size: 11.5px;
+                                    font-weight: 800;
+                                    white-space: nowrap;
+                                "
+                                >Amount in Words:</span
+                            >
+                            <span
+                                style="
+                                    font-size: 11.5px;
+                                    font-weight: 600;
+                                    font-style: italic;
+                                "
+                                x-text="amountInWords(calcGrandTotal()) + ' Only'"
+                            ></span>
+                        </div>
+
+                        <!-- ⑥ Finance Details -->
+                        <div
+                            x-show="invoice.paymentMode==='Finance'"
+                            x-cloak
+                            style="margin-bottom: 4px; padding: 3px 0;"
+                        >
+                            <span style="font-size: 11px; font-weight: 800;">Finance Details:</span>
+                            <span style="font-size: 11px; font-weight: 600; margin-left: 8px;">
+                                Doc No: <span style="font-weight:700;" x-text="finance.documentNumber||'—'"></span>
+                                <span style="margin: 0 6px;">|</span>
+                                Downpayment: <span style="font-weight:700;" x-text="'₹'+formatCurrency(finance.downpayment)"></span>
+                                <template x-if="finance.emi > 0">
+                                    <span>
+                                        <span style="margin: 0 6px;">|</span>
+                                        EMI: <span style="font-weight:700;" x-text="'₹'+formatCurrency(finance.emi)"></span>
+                                    </span>
+                                </template>
+                                <template x-if="finance.months > 0">
+                                    <span>
+                                        <span style="margin: 0 6px;">|</span>
+                                        Months: <span style="font-weight:700;" x-text="finance.months+' Months'"></span>
+                                    </span>
+                                </template>
+                            </span>
+                        </div>
+
+                        <!-- ⑦ Terms & Conditions -->
+                        <div class="terms-section">
+                            <div
+                                style="
+                                    font-size: 9.5px;
+                                    font-weight: 800;
+                                    border-top: 1px solid #000;
+                                    border-bottom: 1px solid #555;
+                                    padding: 2px 0;
+                                    margin-bottom: 3px;
+                                    letter-spacing: 0.04em;
+                                    text-transform: uppercase;
+                                "
+                            >
+                                Terms &amp; Conditions
+                            </div>
+                            <ol
+                                style="
+                                    font-size: 8.5px;
+                                    font-weight: 500;
+                                    padding-left: 14px;
+                                    line-height: 1.5;
+                                    color: #333;
+                                "
+                            >
+                                <li>
+                                    Goods once sold will not be taken back or
+                                    exchanged.
+                                </li>
+                                <li>
+                                    Warranty is strictly as per
+                                    manufacturer/company policy only.
+                                </li>
+                                <li>
+                                    Seller is not responsible for any defects
+                                    after delivery.
+                                </li>
+                                <li>
+                                    Advance payment is non-refundable and
+                                    non-transferable.
+                                </li>
+                                <li>
+                                    Full payment must be completed as per agreed
+                                    terms.
+                                </li>
+                                <li>
+                                    Physical/liquid damage or mishandling is not
+                                    covered under warranty.
+                                </li>
+                                <li>
+                                    Customer is responsible for checking product
+                                    condition at time of delivery.
+                                </li>
+                                <li>
+                                    Seller is not responsible for data loss or
+                                    software-related issues.
+                                </li>
+                                <li>
+                                    Prices once billed will not be altered. All
+                                    disputes subject to local jurisdiction.
+                                </li>
+                            </ol>
+                        </div>
+
+                        <!-- ⑧ Signatures -->
+                        <div
+                            style="
+                                margin-top: auto;
+                                padding-top: 6px;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: flex-end;
+                            "
+                        >
+                            <div style="font-size: 9.5px">
+                                <div
+                                    style="
+                                        border-bottom: 1px solid #000;
+                                        width: 130px;
+                                        margin-bottom: 3px;
+                                    "
+                                ></div>
+                                <span style="font-weight: 700"
+                                    >Receiver's Signature</span
+                                >
+                            </div>
+                            <div style="text-align: center; min-width: 160px">
+                                <div
+                                    style="
+                                        border-top: 1.5px solid #000;
+                                        padding-top: 3px;
+                                    "
+                                >
+                                    <div
+                                        style="
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            text-transform: uppercase;
+                                            letter-spacing: 0.04em;
+                                        "
+                                    >
+                                        Authorized Signatory
+                                    </div>
+                                    <div
+                                        style="
+                                            font-size: 9.5px;
+                                            font-weight: 600;
+                                            color: #333;
+                                        "
+                                        x-text="shop.name"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- /z-index:1 -->
+                </div>
+                <!-- /invoice-preview -->
+            </div>
+            <!-- /preview-pane -->
+        </div>
+        <!-- /main-area -->
+
+        <!-- ══ Toast ═════════════════════════════════════════════ -->
+        <div id="toast" class="toast"></div>
+
+        <script>
+            const LS_INVOICES = "mdm_invoices_v1";
+            const LS_CUSTOMERS = "mdm_customers_v1";
+            const LS_HSN = "mdm_hsn_v1";
+
+            function getNextInvoiceNumber() {
+                const today = new Date();
+                const yy = String(today.getFullYear()).slice(-2);
+                const mm = String(today.getMonth() + 1).padStart(2, "0");
+                const dd = String(today.getDate()).padStart(2, "0");
+                const key = `mdm_counter_${yy}${mm}${dd}`;
+                let n = parseInt(localStorage.getItem(key) || "0") + 1;
+                localStorage.setItem(key, n);
+                return `INV-${yy}${mm}${dd}-${String(n).padStart(3, "0")}`;
+            }
+
+            function getNextAdvanceNumber() {
+                const today = new Date();
+                const mm = String(today.getMonth() + 1).padStart(2, "0");
+                const dd = String(today.getDate()).padStart(2, "0");
+                const yy = String(today.getFullYear()).slice(-2);
+                const key = `mdm_adv_counter_${mm}${dd}${yy}`;
+                let n = parseInt(localStorage.getItem(key) || "0") + 1;
+                localStorage.setItem(key, n);
+                return `${mm}${dd}${yy}-${String(n).padStart(3, "0")}`;
+            }
+
+            function showToast(msg, type = "success") {
+                const t = document.getElementById("toast");
+                t.textContent = msg;
+                t.className = `toast ${type} show`;
+                setTimeout(() => {
+                    t.classList.remove("show");
+                }, 2800);
+            }
+
+            function billApp() {
+                return {
+                    shop: {
+                        name: "MANGALORE DIGITAL MATRIX",
+                        address:
+                            "Athena Hospital Complex , Falnir Road\nD.K, Karnataka - 575001",
+                        email: "mangaloredigitalmatrix@gmail.com",
+                        mobile: "8884348383",
+                        logoUrl: localStorage.getItem('mdm_logo_v1') || '',
+                    },
+                    invoice: {
+                        number: getNextInvoiceNumber(),
+                        date: new Date().toISOString().split("T")[0],
+                        placeOfSupply: "Karnataka",
+                        paymentMode: "Cash",
+                        billType: "tax",
+                        advancePaid: 0,
+                    },
+                    customer: { name: "", address: "", phone: "" },
+                    finance: { documentNumber: "", downpayment: 0, emi: 0, months: 0 },
+                    items: [
+                        {
+                            name: "",
+                            serial: "",
+                            hsn: "",
+                            qty: 1,
+                            mrp: 0,
+                            price: 0,
+                            gst: 18,
+                            note: "",
+                        },
+                    ],
+
+                    savedInvoices: [],
+                    savedCustomers: [],
+                    savedHSN: [],
+                    showSearch: false,
+                    searchQuery: "",
+
+                    addItem() {
+                        this.items.push({
+                            name: "",
+                            serial: "",
+                            hsn: "",
+                            qty: 1,
+                            mrp: 0,
+                            price: 0,
+                            gst: 18,
+                            note: "",
+                        });
+                    },
+                    removeItem(i) {
+                        if (this.items.length > 1) this.items.splice(i, 1);
+                    },
+
+                    newInvoice() {
+                        if (!confirm("Start a new blank invoice?")) return;
+                        this.invoice.number = getNextInvoiceNumber();
+                        this.invoice.date = new Date()
+                            .toISOString()
+                            .split("T")[0];
+                        this.invoice.placeOfSupply = "Karnataka";
+                        this.invoice.paymentMode = "Cash";
+                        this.customer = { name: "", address: "", phone: "" };
+                        this.finance = { documentNumber: "", downpayment: 0 };
+                        this.items = [
+                            {
+                                name: "",
+                                serial: "",
+                                hsn: "",
+                                qty: 1,
+                                mrp: 0,
+                                price: 0,
+                                gst: 18,
+                            },
+                        ];
+                        showToast("New invoice started");
+                    },
+
+                    /* ── GST calculations (price is GST-inclusive selling price) ── */
+                    itemInclusiveTotal(it) {
+                        if (!(it.name || "").trim()) return 0;
+                        return (
+                            Math.round((it.qty || 0) * (it.price || 0) * 100) /
+                            100
+                        );
+                    },
+                    itemBase(it) {
+                        return (
+                            Math.round(
+                                (this.itemInclusiveTotal(it) /
+                                    (1 + (it.gst || 0) / 100)) *
+                                    100,
+                            ) / 100
+                        );
+                    },
+                    itemGSTAmount(it) {
+                        return (
+                            Math.round(
+                                (this.itemInclusiveTotal(it) -
+                                    this.itemBase(it)) *
+                                    100,
+                            ) / 100
+                        );
+                    },
+                    itemSGST(it) {
+                        return (
+                            Math.round((this.itemGSTAmount(it) / 2) * 100) / 100
+                        );
+                    },
+                    itemCGST(it) {
+                        return (
+                            Math.round((this.itemGSTAmount(it) / 2) * 100) / 100
+                        );
+                    },
+                    itemTotal(it) {
+                        return this.itemInclusiveTotal(it);
+                    },
+                    /* Discount = (MRP - Selling Price) × Qty */
+                    itemDiscount(it) {
+                        const mrp = it.mrp || 0;
+                        const sp = it.price || 0;
+                        const qty = it.qty || 0;
+                        return Math.round(Math.max(0, (mrp - sp) * qty) * 100) / 100;
+                    },
+                    calcTotalDiscount() {
+                        return Math.round(this.items.reduce((a, i) => a + this.itemDiscount(i), 0) * 100) / 100;
+                    },
+                    calcSubtotal() {
+                        return (
+                            Math.round(
+                                this.items.reduce(
+                                    (a, i) => a + this.itemBase(i),
+                                    0,
+                                ) * 100,
+                            ) / 100
+                        );
+                    },
+                    calcTotalSGST() {
+                        return (
+                            Math.round(
+                                this.items.reduce(
+                                    (a, i) => a + this.itemSGST(i),
+                                    0,
+                                ) * 100,
+                            ) / 100
+                        );
+                    },
+                    calcTotalCGST() {
+                        return (
+                            Math.round(
+                                this.items.reduce(
+                                    (a, i) => a + this.itemCGST(i),
+                                    0,
+                                ) * 100,
+                            ) / 100
+                        );
+                    },
+                    calcTotalGST() {
+                        return (
+                            Math.round(
+                                (this.calcTotalSGST() + this.calcTotalCGST()) *
+                                    100,
+                            ) / 100
+                        );
+                    },
+                    calcGrandTotal() {
+                        return (
+                            Math.round(
+                                this.items.reduce(
+                                    (a, i) => a + this.itemInclusiveTotal(i),
+                                    0,
+                                ) * 100,
+                            ) / 100
+                        );
+                    },
+
+                    formatCurrency(v) {
+                        const n = v || 0,
+                            w = n % 1 === 0;
+                        return new Intl.NumberFormat("en-IN", {
+                            minimumFractionDigits: w ? 0 : 2,
+                            maximumFractionDigits: w ? 0 : 2,
+                        }).format(n);
+                    },
+                    formatDate(s) {
+                        if (!s) return "";
+                        const d = new Date(s);
+                        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+                    },
+                    fillerRowCount() {
+                        return Math.max(0, 10 - this.items.length);
+                    },
+
+                    amountInWords(amount) {
+                        const ones = [
+                            "",
+                            "One",
+                            "Two",
+                            "Three",
+                            "Four",
+                            "Five",
+                            "Six",
+                            "Seven",
+                            "Eight",
+                            "Nine",
+                            "Ten",
+                            "Eleven",
+                            "Twelve",
+                            "Thirteen",
+                            "Fourteen",
+                            "Fifteen",
+                            "Sixteen",
+                            "Seventeen",
+                            "Eighteen",
+                            "Nineteen",
+                        ];
+                        const tens = [
+                            "",
+                            "",
+                            "Twenty",
+                            "Thirty",
+                            "Forty",
+                            "Fifty",
+                            "Sixty",
+                            "Seventy",
+                            "Eighty",
+                            "Ninety",
+                        ];
+                        function cvt(n) {
+                            if (!n) return "";
+                            if (n < 20) return ones[n];
+                            if (n < 100)
+                                return (
+                                    tens[Math.floor(n / 10)] +
+                                    (n % 10 ? " " + ones[n % 10] : "")
+                                );
+                            return (
+                                ones[Math.floor(n / 100)] +
+                                " Hundred" +
+                                (n % 100 ? " " + cvt(n % 100) : "")
+                            );
+                        }
+                        const num = Math.round(amount);
+                        if (!num) return "Zero Rupees";
+                        const cr = Math.floor(num / 10000000),
+                            lk = Math.floor((num % 10000000) / 100000),
+                            th = Math.floor((num % 100000) / 1000),
+                            rest = num % 1000;
+                        let r = "";
+                        if (cr) r += cvt(cr) + " Crore ";
+                        if (lk) r += cvt(lk) + " Lakh ";
+                        if (th) r += cvt(th) + " Thousand ";
+                        if (rest) r += cvt(rest);
+                        return "Rupees " + r.trim();
+                    },
+
+                    saveInvoice() {
+                        const data = {
+                            id: Date.now(),
+                            number: this.invoice.number,
+                            date: this.formatDate(this.invoice.date),
+                            customerName: this.customer.name,
+                            phone: this.customer.phone,
+                            address: this.customer.address,
+                            paymentMode: this.invoice.paymentMode,
+                            placeOfSupply: this.invoice.placeOfSupply,
+                            items: JSON.parse(JSON.stringify(this.items)),
+                            finance: JSON.parse(JSON.stringify(this.finance)),
+                            total: this.formatCurrency(this.calcGrandTotal()),
+                            savedAt: new Date().toISOString(),
+                        };
+                        const idx = this.savedInvoices.findIndex(
+                            (i) => i.number === data.number,
+                        );
+                        if (idx >= 0) this.savedInvoices.splice(idx, 1, data);
+                        else this.savedInvoices.unshift(data);
+                        localStorage.setItem(
+                            LS_INVOICES,
+                            JSON.stringify(this.savedInvoices),
+                        );
+                        this.saveCustomer();
+                        showToast("✅ Invoice saved!");
+                    },
+
+                    filteredInvoices() {
+                        const q = (this.searchQuery || "").trim().toLowerCase();
+                        if (!q) return this.savedInvoices.slice(0, 20);
+                        return this.savedInvoices.filter(
+                            (inv) =>
+                                (inv.number || "").toLowerCase().includes(q) ||
+                                (inv.customerName || "")
+                                    .toLowerCase()
+                                    .includes(q) ||
+                                (inv.phone || "").includes(q),
+                        );
+                    },
+                    loadInvoice(inv) {
+                        this.invoice.number = inv.number;
+                        this.invoice.date = (() => {
+                            if (!inv.date)
+                                return new Date().toISOString().split("T")[0];
+                            const [d, m, y] = inv.date.split("/");
+                            return `${y}-${m}-${d}`;
+                        })();
+                        this.invoice.placeOfSupply =
+                            inv.placeOfSupply || "Karnataka";
+                        this.invoice.paymentMode = inv.paymentMode || "Cash";
+                        this.customer.name = inv.customerName || "";
+                        this.customer.phone = inv.phone || "";
+                        this.customer.address = inv.address || "";
+                        this.finance = inv.finance
+                            ? { ...inv.finance }
+                            : { documentNumber: "", downpayment: 0 };
+                        this.items = inv.items
+                            ? JSON.parse(JSON.stringify(inv.items))
+                            : [
+                                  {
+                                      name: "",
+                                      serial: "",
+                                      hsn: "",
+                                      qty: 1,
+                                      mrp: 0,
+                                      price: 0,
+                                      gst: 18,
+                                  },
+                              ];
+                        this.showSearch = false;
+                        showToast("📂 Invoice loaded: " + inv.number);
+                    },
+                    clearAllInvoices() {
+                        if (
+                            !confirm(
+                                "Delete all saved invoices? This cannot be undone.",
+                            )
+                        )
+                            return;
+                        this.savedInvoices = [];
+                        localStorage.removeItem(LS_INVOICES);
+                        showToast("🗑 All invoices cleared", "error");
+                    },
+
+                    saveCustomer() {
+                        if (!this.customer.phone && !this.customer.name) return;
+                        const c = {
+                            name: this.customer.name,
+                            phone: this.customer.phone,
+                            address: this.customer.address,
+                        };
+                        const idx = this.savedCustomers.findIndex(
+                            (x) => x.phone === c.phone && c.phone,
+                        );
+                        if (idx >= 0) this.savedCustomers.splice(idx, 1, c);
+                        else if (c.phone || c.name) this.savedCustomers.push(c);
+                        localStorage.setItem(
+                            LS_CUSTOMERS,
+                            JSON.stringify(this.savedCustomers),
+                        );
+                    },
+                    phoneAutofill() {
+                        const exact = this.savedCustomers.find(
+                            (c) => c.phone === this.customer.phone,
+                        );
+                        if (exact) {
+                            this.customer.name = exact.name;
+                            this.customer.address = exact.address;
+                        }
+                    },
+                    phoneSuggestions() {
+                        const q = (this.customer.phone || "").trim();
+                        if (!q) return [];
+                        return this.savedCustomers
+                            .filter((c) => (c.phone || "").includes(q))
+                            .slice(0, 6);
+                    },
+                    fillCustomer(c) {
+                        this.customer.name = c.name;
+                        this.customer.phone = c.phone;
+                        this.customer.address = c.address;
+                    },
+
+                    saveHSNEntry(item) {
+                        if (!item.name || !item.hsn) return;
+                        const entry = {
+                            name: item.name.trim(),
+                            hsn: item.hsn.trim(),
+                            gst: item.gst,
+                        };
+                        const idx = this.savedHSN.findIndex(
+                            (h) =>
+                                h.name.toLowerCase() ===
+                                entry.name.toLowerCase(),
+                        );
+                        if (idx >= 0) this.savedHSN.splice(idx, 1, entry);
+                        else this.savedHSN.push(entry);
+                        localStorage.setItem(
+                            LS_HSN,
+                            JSON.stringify(this.savedHSN),
+                        );
+                    },
+                    autoFillHSN(item) {
+                        const n = (item.name || "").trim().toLowerCase();
+                        if (!n) return;
+                        const exact = this.savedHSN.find(
+                            (h) => h.name.toLowerCase() === n,
+                        );
+                        if (exact && !item.hsn) {
+                            item.hsn = exact.hsn;
+                            item.gst = exact.gst;
+                        }
+                    },
+                    hsnSuggestions(item) {
+                        const q = (item.name || "").trim().toLowerCase();
+                        if (!q || q.length < 2) return [];
+                        return this.savedHSN
+                            .filter(
+                                (h) =>
+                                    h.name.toLowerCase().includes(q) &&
+                                    h.name.toLowerCase() !== q,
+                            )
+                            .slice(0, 5);
+                    },
+                    applyHSN(item, h) {
+                        item.name = h.name;
+                        item.hsn = h.hsn;
+                        item.gst = h.gst;
+                    },
+
+                    /* ══════════════════════════════════════════════
+               PDF DOWNLOAD — Exact visual format + copyable text
+               Strategy: html2canvas renders the exact layout as image,
+               then invisible jsPDF text is overlaid for copy/search.
+            ══════════════════════════════════════════════ */
+                    downloadPDF() {
+                        const btn = document.getElementById("dl-btn");
+                        const label = document.getElementById("dl-label");
+                        btn.disabled = true;
+                        label.textContent = "Generating…";
+                        this.saveInvoice();
+
+                        const source = document.getElementById("invoice-preview");
+                        const customerName = (this.customer.name || "Customer").replace(/\s+/g, "_");
+                        const filename = `Invoice_${this.invoice.number}_${customerName}.pdf`;
+
+                        // Build off-screen clone (same as original approach)
+                        const mount = document.createElement("div");
+                        mount.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none;z-index:-999;";
+                        const borderBox = document.createElement("div");
+                        borderBox.style.cssText = ["width:206mm","height:293mm","box-sizing:border-box","position:relative","overflow:hidden","background:#fff"].join(";");
+                        const clone = source.cloneNode(true);
+                        clone.style.cssText = ["width:100%","height:100%","padding:8mm 10mm","background:transparent","box-sizing:border-box","display:flex","flex-direction:column","overflow:visible","border:none","outline:none","position:relative","transform:none","margin:0","box-shadow:none"].join(";");
+                        clone.querySelectorAll(".no-print").forEach(el => el.remove());
+                        clone.querySelectorAll("img").forEach(img => { img.crossOrigin = "anonymous"; img.style.width = "40mm"; img.style.height = "auto"; img.style.maxHeight = "none"; });
+                        borderBox.appendChild(clone);
+                        mount.appendChild(borderBox);
+                        document.body.appendChild(mount);
+                        void borderBox.getBoundingClientRect();
+
+                        const restore = () => { document.body.removeChild(mount); btn.disabled = false; label.textContent = "Download PDF"; };
+
+                        // Collect all text nodes with their bounding boxes from the live (visible) invoice
+                        // We do this BEFORE rendering so positions map to the 206mm×293mm coordinate space
+                        const collectTextNodes = (root) => {
+                            const results = [];
+                            const rootRect = root.getBoundingClientRect();
+                            const walk = (node) => {
+                                if (node.nodeType === Node.TEXT_NODE) {
+                                    const text = node.textContent.trim();
+                                    if (!text) return;
+                                    const range = document.createRange();
+                                    range.selectNode(node);
+                                    const rects = range.getClientRects();
+                                    for (const r of rects) {
+                                        if (r.width < 1 || r.height < 1) continue;
+                                        results.push({
+                                            text,
+                                            x: r.left - rootRect.left,
+                                            y: r.top - rootRect.top,
+                                            w: r.width,
+                                            h: r.height,
+                                        });
+                                    }
+                                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                                    const el = node;
+                                    // Skip hidden elements
+                                    const style = window.getComputedStyle(el);
+                                    if (style.display === "none" || style.visibility === "hidden" || parseFloat(style.opacity) === 0) return;
+                                    if (el.classList && el.classList.contains("no-print")) return;
+                                    for (const child of node.childNodes) walk(child);
+                                }
+                            };
+                            walk(root);
+                            return results;
+                        };
+
+                        // Collect text from the LIVE visible preview (accurate positions)
+                        const livePreview = document.getElementById("invoice-preview");
+                        const textNodes = collectTextNodes(livePreview);
+                        const liveRect = livePreview.getBoundingClientRect();
+                        // livePreview is 206mm wide on screen — get its pixel width
+                        const previewPxWidth = liveRect.width;   // px
+                        const previewPxHeight = liveRect.height;  // px
+                        // A4 in mm
+                        const A4W = 210, A4H = 297;
+
+                        html2pdf()
+                            .set({
+                                margin: 0,
+                                filename,
+                                image: { type: "jpeg", quality: 1.0 },
+                                html2canvas: { scale: 3, useCORS: true, logging: false, letterRendering: true, scrollX: 0, scrollY: 0, allowTaint: true, backgroundColor: "#ffffff" },
+                                jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: false },
+                                pagebreak: { mode: [] },
+                            })
+                            .from(borderBox)
+                            .toPdf()
+                            .get("pdf")
+                            .then((pdf) => {
+                                // Trim extra pages
+                                while (pdf.internal.pages.length > 2) pdf.deletePage(pdf.internal.pages.length - 1);
+                                if (pdf.internal.pages.length === 2 && pdf.internal.pages[2] !== undefined) pdf.deletePage(2);
+
+                                // ── Overlay invisible selectable text ──
+                                // Scale factors: px → mm
+                                const scaleX = A4W / previewPxWidth;
+                                const scaleY = A4H / previewPxHeight;
+
+                                pdf.setTextColor(0, 0, 0);
+                                pdf.setGState(pdf.GState({ opacity: 0 })); // invisible
+
+                                for (const node of textNodes) {
+                                    const xMm = node.x * scaleX;
+                                    const yMm = node.y * scaleY + (node.h * scaleY * 0.85); // baseline
+                                    const fontSizePt = Math.max(4, node.h * scaleY * 2.835); // mm→pt ≈ 2.835
+                                    pdf.setFontSize(fontSizePt);
+                                    // Clip text to fit its bounding box width
+                                    pdf.text(node.text, xMm, yMm, {
+                                        maxWidth: node.w * scaleX + 1,
+                                        baseline: "alphabetic",
+                                    });
+                                }
+
+                                // Restore opacity for anything drawn after
+                                pdf.setGState(pdf.GState({ opacity: 1 }));
+                            })
+                            .save()
+                            .then(restore)
+                            .catch(restore);
+                    },
+
+                    initApp() {
+                        this.savedInvoices = JSON.parse(
+                            localStorage.getItem(LS_INVOICES) || "[]",
+                        );
+                        this.savedCustomers = JSON.parse(
+                            localStorage.getItem(LS_CUSTOMERS) || "[]",
+                        );
+                        this.savedHSN = JSON.parse(
+                            localStorage.getItem(LS_HSN) || "[]",
+                        );
+
+                        const setScale = () => {
+                            if (window.innerWidth < 768) {
+                                const s = Math.min(
+                                    (window.innerWidth - 20) / 779,
+                                    1,
+                                ).toFixed(3);
+                                document.documentElement.style.setProperty(
+                                    "--a4-scale",
+                                    s,
+                                );
+                            } else {
+                                document.documentElement.style.removeProperty(
+                                    "--a4-scale",
+                                );
+                            }
+                        };
+                        setScale();
+                        window.addEventListener("resize", setScale);
+                        if (window.innerWidth < 768) switchTab("form");
+                    },
+                };
+            }
+
+            function switchTab(tab) {
+                const area = document.getElementById("main-area");
+                const tf = document.getElementById("tab-form");
+                const tp = document.getElementById("tab-preview");
+                area.classList.remove("show-form", "show-preview");
+                if (tab === "form") {
+                    area.classList.add("show-form");
+                    tf.classList.add("active");
+                    tp.classList.remove("active");
+                } else {
+                    area.classList.add("show-preview");
+                    tp.classList.add("active");
+                    tf.classList.remove("active");
+                }
+            }
+        </script>
+    </body>
+</html>
